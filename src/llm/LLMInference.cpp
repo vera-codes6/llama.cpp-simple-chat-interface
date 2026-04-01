@@ -2,9 +2,9 @@
 #include <cstring>
 #include <iostream>
 
-void
-LLMInference::loadModel(const char *model_path, float minP, float temperature, bool storeChats, long contextSize,
-                        const char *chatTemplate, int nThreads, bool useMmap, bool useMlock) {
+void LLMInference::loadModel(const char *model_path, float minP, float temperature, bool storeChats, long contextSize,
+                             const char *chatTemplate, int nThreads, bool useMmap, bool useMlock)
+{
     // load dynamic backends
     ggml_backend_load_all();
 
@@ -13,18 +13,22 @@ LLMInference::loadModel(const char *model_path, float minP, float temperature, b
     model_params.use_mmap = useMmap;
     model_params.use_mlock = useMlock;
     _model = llama_model_load_from_file(model_path, model_params);
-    if (!_model) {
+    if (!_model)
+    {
         throw std::runtime_error("loadModel() failed");
     }
 
     // create an instance of llama_context
     llama_context_params ctx_params = llama_context_default_params();
+
     ctx_params.n_ctx = contextSize;
     ctx_params.n_batch = contextSize;
     ctx_params.n_threads = nThreads;
     ctx_params.no_perf = true; // disable performance metrics
     _ctx = llama_init_from_model(_model, ctx_params);
-    if (!_ctx) {
+
+    if (!_ctx)
+    {
         throw std::runtime_error("llama_new_context_with_model() returned null");
     }
 
@@ -32,38 +36,43 @@ LLMInference::loadModel(const char *model_path, float minP, float temperature, b
     llama_sampler_chain_params sampler_params = llama_sampler_chain_default_params();
     sampler_params.no_perf = true; // disable performance metrics
     _sampler = llama_sampler_chain_init(sampler_params);
+
     llama_sampler_chain_add(_sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(_sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     _formattedMessages = std::vector<char>(llama_n_ctx(_ctx));
     _messages.clear();
 
-    if (chatTemplate == nullptr) {
+    if (chatTemplate == nullptr)
+    {
         _chatTemplate = llama_model_chat_template(_model, nullptr);
-    } else {
+    }
+    else
+    {
         _chatTemplate = strdup(chatTemplate);
     }
     this->_storeChats = storeChats;
 }
 
-void
-LLMInference::addChatMessage(const char *message, const char *role) {
+void LLMInference::addChatMessage(const char *message, const char *role)
+{
     _messages.push_back({strdup(role), strdup(message)});
 }
 
-float
-LLMInference::getResponseGenerationTime() const {
-    return (float) _responseNumTokens / (_responseGenerationTime / 1e6);
+float LLMInference::getResponseGenerationTime() const
+{
+    return (float)_responseNumTokens / (_responseGenerationTime / 1e6);
 }
 
-int
-LLMInference::getContextSizeUsed() const {
+int LLMInference::getContextSizeUsed() const
+{
     return _nCtxUsed;
 }
 
-void
-LLMInference::startCompletion(const char *query) {
-    if (!_storeChats) {
+void LLMInference::startCompletion(const char *query)
+{
+    if (!_storeChats)
+    {
         _prevLen = 0;
         _formattedMessages.clear();
         _formattedMessages = std::vector<char>(llama_n_ctx(_ctx));
@@ -74,14 +83,16 @@ LLMInference::startCompletion(const char *query) {
     // apply the chat-template
     int newLen = llama_chat_apply_template(_chatTemplate, _messages.data(), _messages.size(), true,
                                            _formattedMessages.data(), _formattedMessages.size());
-    if (newLen > (int) _formattedMessages.size()) {
+    if (newLen > (int)_formattedMessages.size())
+    {
         // resize the output buffer `_formattedMessages`
         // and re-apply the chat template
         _formattedMessages.resize(newLen);
         newLen = llama_chat_apply_template(_chatTemplate, _messages.data(), _messages.size(), true,
                                            _formattedMessages.data(), _formattedMessages.size());
     }
-    if (newLen < 0) {
+    if (newLen < 0)
+    {
         throw std::runtime_error("llama_chat_apply_template() in LLMInference::startCompletion() failed");
     }
     std::string prompt(_formattedMessages.begin() + _prevLen, _formattedMessages.begin() + newLen);
@@ -96,33 +107,46 @@ LLMInference::startCompletion(const char *query) {
 
 // taken from:
 // https://github.com/ggerganov/llama.cpp/blob/master/examples/llama.android/llama/src/main/cpp/llama-android.cpp#L38
-bool
-LLMInference::_isValidUtf8(const char *response) {
-    if (!response) {
+bool LLMInference::_isValidUtf8(const char *response)
+{
+    if (!response)
+    {
         return true;
     }
-    const unsigned char *bytes = (const unsigned char *) response;
+    const unsigned char *bytes = (const unsigned char *)response;
     int num;
-    while (*bytes != 0x00) {
-        if ((*bytes & 0x80) == 0x00) {
+    while (*bytes != 0x00)
+    {
+        if ((*bytes & 0x80) == 0x00)
+        {
             // U+0000 to U+007F
             num = 1;
-        } else if ((*bytes & 0xE0) == 0xC0) {
+        }
+        else if ((*bytes & 0xE0) == 0xC0)
+        {
             // U+0080 to U+07FF
             num = 2;
-        } else if ((*bytes & 0xF0) == 0xE0) {
+        }
+        else if ((*bytes & 0xF0) == 0xE0)
+        {
             // U+0800 to U+FFFF
             num = 3;
-        } else if ((*bytes & 0xF8) == 0xF0) {
+        }
+        else if ((*bytes & 0xF8) == 0xF0)
+        {
             // U+10000 to U+10FFFF
             num = 4;
-        } else {
+        }
+        else
+        {
             return false;
         }
 
         bytes += 1;
-        for (int i = 1; i < num; ++i) {
-            if ((*bytes & 0xC0) != 0x80) {
+        for (int i = 1; i < num; ++i)
+        {
+            if ((*bytes & 0xC0) != 0x80)
+            {
                 return false;
             }
             bytes += 1;
@@ -132,25 +156,29 @@ LLMInference::_isValidUtf8(const char *response) {
 }
 
 std::string
-LLMInference::completionLoop() {
+LLMInference::completionLoop()
+{
     // check if the length of the inputs to the model
     // have exceeded the context size of the model
     uint32_t contextSize = llama_n_ctx(_ctx);
     _nCtxUsed = llama_memory_seq_pos_max(llama_get_memory(_ctx), 0) + 1;
-    if (_nCtxUsed + _batch->n_tokens > contextSize) {
+    if (_nCtxUsed + _batch->n_tokens > contextSize)
+    {
         throw std::runtime_error("context size reached");
     }
 
     auto start = ggml_time_us();
     // run the model
-    if (llama_decode(_ctx, *_batch) < 0) {
+    if (llama_decode(_ctx, *_batch) < 0)
+    {
         throw std::runtime_error("llama_decode() failed");
     }
 
     // sample a token and check if it is an EOG (end of generation token)
     // convert the integer token to its corresponding word-piece
     _currToken = llama_sampler_sample(_sampler, _ctx, -1);
-    if (llama_vocab_is_eog(llama_model_get_vocab(_model), _currToken)) {
+    if (llama_vocab_is_eog(llama_model_get_vocab(_model), _currToken))
+    {
         addChatMessage(strdup(_response.data()), "assistant");
         _response.clear();
         return "[EOG]";
@@ -167,7 +195,8 @@ LLMInference::completionLoop() {
     _batch->token = &_currToken;
     _batch->n_tokens = 1;
 
-    if (_isValidUtf8(_cacheResponseTokens.c_str())) {
+    if (_isValidUtf8(_cacheResponseTokens.c_str()))
+    {
         _response += _cacheResponseTokens;
         std::string valid_utf8_piece = _cacheResponseTokens;
         _cacheResponseTokens.clear();
@@ -177,22 +206,26 @@ LLMInference::completionLoop() {
     return "";
 }
 
-void
-LLMInference::stopCompletion() {
-    if (_storeChats) {
+void LLMInference::stopCompletion()
+{
+    if (_storeChats)
+    {
         addChatMessage(_response.c_str(), "assistant");
     }
     _response.clear();
     _prevLen = llama_chat_apply_template(_chatTemplate, _messages.data(), _messages.size(), false, nullptr, 0);
-    if (_prevLen < 0) {
+    if (_prevLen < 0)
+    {
         throw std::runtime_error("llama_chat_apply_template() in LLMInference::stopCompletion() failed");
     }
 }
 
-LLMInference::~LLMInference() {
+LLMInference::~LLMInference()
+{
     // free memory held by the message text in messages
     // (as we had used strdup() to create a malloc'ed copy)
-    for (llama_chat_message &message: _messages) {
+    for (llama_chat_message &message : _messages)
+    {
         free(const_cast<char *>(message.role));
         free(const_cast<char *>(message.content));
     }
