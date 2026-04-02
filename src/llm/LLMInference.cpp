@@ -2,6 +2,7 @@
 #include <cstring>
 #include <iostream>
 
+
 void LLMInference::loadModel(const char *model_path, float minP, float temperature, bool storeChats, long contextSize,
                              const char *chatTemplate, int nThreads, bool useMmap, bool useMlock)
 {
@@ -224,13 +225,15 @@ LLMInference::~LLMInference()
 {
     // free memory held by the message text in messages
     // (as we had used strdup() to create a malloc'ed copy)
-    for (llama_chat_message &message : _messages)
-    {
+
+    for (llama_chat_message &message : _messages) {
         free(const_cast<char *>(message.role));
         free(const_cast<char *>(message.content));
     }
+    
     llama_free(_ctx);
     llama_model_free(_model);
+
     delete _batch;
     llama_sampler_free(_sampler);
 }
